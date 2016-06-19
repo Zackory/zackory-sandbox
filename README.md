@@ -1,2 +1,2 @@
-# zackory_sandbox
-Sandbox for trial experiments.
+# Zackory's Sandbox
+A sandbox for trial experiments.
