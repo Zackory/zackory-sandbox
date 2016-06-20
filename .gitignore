@@ -6,6 +6,7 @@
 
 # Build Directories
 /*/build/
+/*/Build/
 
 # Precompiled Headers
 *.gch

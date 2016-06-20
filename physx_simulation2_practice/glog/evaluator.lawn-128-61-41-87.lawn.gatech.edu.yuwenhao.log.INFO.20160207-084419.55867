@@ -1,0 +1,4 @@
+Log file created at: 2016/02/07 08:44:19
+Running on machine: lawn-128-61-41-87.lawn.gatech.edu
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I0207 08:44:19.088770 1915519744 main.cpp:77] BioloidGP program begins...

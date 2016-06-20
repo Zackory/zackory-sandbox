@@ -1,0 +1,5 @@
+Log file created at: 2016/02/16 15:00:22
+Running on machine: lawn-128-61-37-81.lawn.gatech.edu
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I0216 15:00:22.167847 1915519744 main.cpp:100] BioloidGP program begins...
+I0216 15:00:27.190150 1915519744 main.cpp:120] Wrong argc setup

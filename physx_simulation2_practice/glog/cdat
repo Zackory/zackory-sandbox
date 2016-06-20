@@ -1,0 +1,17 @@
+% # resume (randomSeed=806311507, Thu Feb 18 23:20:55 2016)
+
+# resume 6
+xmean
+0.5	0.5	0.5	0.5	0.5	0.5
+path for sigma
+0	0	0	0	0	0
+path for C
+0	0	0	0	0	0
+sigma 2.5
+covariance matrix
+1
+0	1
+0	0	1
+0	0	0	1
+0	0	0	0	1
+0	0	0	0	0	1
