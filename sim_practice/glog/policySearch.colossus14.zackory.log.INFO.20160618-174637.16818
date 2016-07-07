@@ -1,4 +1,0 @@
-Log file created at: 2016/06/18 17:46:37
-Running on machine: colossus14
-Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
-I0618 17:46:37.025734 16818 policySearch.cpp:49] BioloidGP program begins...

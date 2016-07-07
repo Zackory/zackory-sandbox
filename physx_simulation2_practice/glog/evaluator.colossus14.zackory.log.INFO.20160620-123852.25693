@@ -1,0 +1,5 @@
+Log file created at: 2016/06/20 12:38:52
+Running on machine: colossus14
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I0620 12:38:52.742374 25693 evaluator.cpp:198] BioloidGP program begins...
+I0620 12:38:53.147706 25693 evaluator.cpp:219] Wrong argc setup

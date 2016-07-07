@@ -1,0 +1,31 @@
+
+# Read from initials.par at Mon Jun 20 14:18:46 2016
+
+ N 7
+ initialX 7
+    0.5     0.5     0.5     0.5     0.5
+    0.5     0.5 
+ initialStandardDeviations 7
+   1.25    1.25    1.25    1.25    1.25
+   1.25    1.25 
+ seed 615788592
+ stopMaxFunEvals 90000
+ stopMaxIter 5625
+ stopFitness
+ stopTolFun 1e-12
+ stopTolFunHist 1e-13
+ stopTolX 0
+ stopTolUpXFactor 1000
+ lambda 16
+ mu 8
+ weights   log
+ cs 0.470065
+ damps 1.46882
+ ccumcov 0.363636
+ mucov 5.09619
+ ccov 0.0913612
+ diagonalCovarianceMatrix 0
+ updatecov 0.156365
+ maxTimeFractionForEigendecompostion 0.2
+ resume                                                        _no_
+

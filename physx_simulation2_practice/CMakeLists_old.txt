@@ -11,11 +11,12 @@ elseif (UNIX)
     set(CMAKE_C_COMPILER gcc)
 endif()
 
-#if (NOT DEFINED BOOST_ROOT)
-#    set(BOOST_ROOT /usr/lib/x86_64-linux-gnu)
-#endif()
+if (NOT DEFINED BOOST_ROOT)
+    set(BOOST_ROOT /usr/lib/x86_64-linux-gnu)
+endif()
 if (NOT DEFINED PHYSX_SDK_ROOT)
     set(PHYSX_SDK_ROOT /home/zackory/git/PhysXSDK)
+#    set(PHYSX_SDK_ROOT /home/zackory/git/PhysX-3.3/PhysXSDK)
 endif()
 ##############################################################
 
@@ -51,7 +52,11 @@ find_package(Eigen REQUIRED)
 find_package(glog REQUIRED)
 find_package(PhysX REQUIRED)
 find_package(png REQUIRED)
-find_package(OpenGL REQUIRED)
+#if (APPLE)
+  find_package(OpenGL REQUIRED)
+#else ()
+#  find_package(GL REQUIRED)
+#endif()
 find_package(DART NO_MODULE)
 
 
@@ -67,23 +72,34 @@ endif()
 # Boost
 find_package(Boost REQUIRED system thread filesystem)
 
+message(${Boost_LIBRARY_DIRS})
+message(${Boost_LIBRARIES})
+
 include_directories(BEFORE ${PROJECT_SOURCE_DIR})
 include_directories(${Eigen_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIRS})
+include_directories(${OPENGL_INCLUDE_DIR})
+include_directories(${GLUT_INCLUDE_DIR})
 include_directories(${PHYSX_INCLUDE_DIR})
-#include_directories(${Boost_INCLUDE_DIRS})
-#include_directories(${OPENGL_INCLUDE_DIR})
-#include_directories(${GLUT_INCLUDE_DIR})
-#include_directories(${PNG_INCLUDE_DIRS})
-#include_directories(${GLOG_INCLUDE_DIRS})
+include_directories(${PNG_INCLUDE_DIRS})
+include_directories(${GLOG_INCLUDE_DIRS})
+
+message("Includes")
+message(${PHYSX_INCLUDE_DIR})
 
 include_directories("${CMAKE_BINARY_DIR}/source/")
 include_directories("${CMAKE_BINARY_DIR}")
 include_directories("${CMAKE_SOURCE_DIR}/source/")
 
+message("WOOH!")
+#message(${PHYSX_LIB_DIR})
+message(${LIBS_PHYSX})
+
 link_directories("${CMAKE_BINARY_DIR}/lib")
 link_directories("${CMAKE_INSTALL_PREFIX}/lib")
-link_directories(${PHYSX_LIB_DIR})
-#link_directories(${Boost_LIBRARY_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
+#link_directories(${PHYSX_LIB_DIR})
+link_directories(${LIBS_PHYSX})
 
 # Main library
 
@@ -92,25 +108,29 @@ set(PHYSX_DEPENDENCIES ${FCL_LIBRARIES}
                            ${Boost_LIBRARIES}
                            ${OPENGL_LIBRARIES}
                            ${GLUT_LIBRARY}
+#			   ${PHYSX_LIBRARIES}
+			   ${LIBS_PHYSX}
 			   ${PNG_LIBRARIES}
 			   ${GLOG_LIBRARIES}
-			   ${PHYSX_LIBRARIES}
 			   )
+
+message("GT!!")
+message(${PHYSX_DEPENDENCIES})
+message("Next!")
 
 add_subdirectory(source)
 
-set (PHYSX_DEPENDENCIES CMAES
+set (PHYSX_DEPENDENCIES ${PHYSX_DEPENDENCIES}
+			CMAES
                         simulator
                         gui
 			myUtils
 			renderer
 			path
-			visualization
-			m
-			z
-			pthread
-			rt
-			${PHYSX_DEPENDENCIES})
+			visualization)
+
+message(${PHYSX_DEPENDENCIES})
+message("Final!")
 
 file(GLOB apps_source "apps/*.cpp")
 LIST(SORT apps_source)
@@ -121,6 +141,7 @@ foreach(app_src_file ${apps_source})
     get_filename_component(app_base ${app_src_file} NAME_WE)
     message(STATUS "Adding application ${app_base}")
     add_executable(${app_base} ${app_src_file})
-    target_link_libraries(${app_base} -Wl,--start-group ${PHYSX_DEPENDENCIES} -Wl,--end-group)
+#    target_link_libraries(${app_base} -Wl,--start-group ${PHYSX_DEPENDENCIES} z rt m pthread -Wl,--end-group)
+    target_link_libraries(${app_base} ${PHYSX_DEPENDENCIES} m z rt pthread)
 endforeach(app_src_file)
 
