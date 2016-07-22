@@ -3,7 +3,7 @@ CXX = g++
 PHYSX = /home/zackory/gitcompare/assistive-dressing/PhysXSDK
 
 CXXFLAGS = -O3 -shared -fPIC -std=c++11 -I/usr/local/include/python2.7 `python-config --cflags`
-CXXFLAGS += -DNDEBUG -I$(PHYSX)/Include 
+CXXFLAGS += -I$(PHYSX)/Include 
 LDFLAGS = `python-config --ldflags`
 
 # CXXFLAGS = -DNDEBUG -DPHYSX_PROFILE_SDK -std=c++11 -I/usr/include/eigen3 -I$(PHYSX)/Include -I$(PHYSX)/Samples/PxToolkit/include -I$(PHYSX)/Source/foundation/include -I$(PHYSX)/Samples/SampleFramework/renderer/include -I$(PHYSX)/Samples/SampleBase -I$(PHYSX)/Samples/SampleFramework/framework/include -I$(PHYSX)/Samples/SampleFramework/platform/include -Isource -Isource/renderer
@@ -14,6 +14,7 @@ all: bindings
 
 bindings: PhysxVecBindings.cpp
 	mkdir -p Build
+	touch Build/__init__.py
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) PhysxVecBindings.cpp PhysxVec.cpp -o Build/PhysxVecBindings.so $(LDLIBS)
 
 .PHONY: clean
