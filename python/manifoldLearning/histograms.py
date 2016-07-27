@@ -17,6 +17,8 @@ SVM_dict = paramDict['SVM']
 nPoints = ROC_dict['nPoints']
 
 modelingPkl = os.path.join(saveDataPath, 'hmm_scooping_0.pkl')
+modelingPkl = '/home/zackory/hrl_file_server/dpark_data/anomaly/RSS2016/old/scooping_data/200_3/hmm_scooping_0.pkl'
+print modelingPkl
 d = ut.load_pickle(modelingPkl)
 nState = d['nState']
 ll_classifier_train_X   = d['ll_classifier_train_X']
