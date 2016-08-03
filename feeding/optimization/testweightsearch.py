@@ -1,3 +1,23 @@
+import os, sys, rospy
+import numpy as np
+import cPickle as pickle
+from collections import deque
+from joblib import Parallel, delayed
+from sklearn.grid_search import GridSearchCV
+
+import hrl_lib.util as ut
+from hrl_anomaly_detection import util
+from hrl_anomaly_detection import data_manager as dm
+from hrl_anomaly_detection.ICRA2017_params import *
+
+# learning
+from hrl_anomaly_detection.hmm import learning_hmm
+from hrl_anomaly_detection.hmm import learning_util as hmm_util
+
+# Classifier
+from hrl_anomaly_detection.classifiers import classifier as clf
+from hrl_anomaly_detection.classifiers.classifier_util import *
+
 import weightsearch
 
 class TestWeightSearch:
@@ -5,10 +25,6 @@ class TestWeightSearch:
         self.initParams()
         # Load HMM and Training/Test Data
         self.loadAll()
-
-        # Preprocess all test data
-        self.preprocessData()
-        self.evalClassifier(0.75)
 
 
     def initParams(self):
@@ -152,13 +168,8 @@ class TestWeightSearch:
 
     def prepareClassifierData(self):
         print 'Preparing data for classifier'
-        trainDataX = []
-        trainDataY = []
-        for i in xrange(self.nEmissionDim):
-            temp = np.vstack([self.normalTrainData[i], self.abnormalTrainData[i]])
-            trainDataX.append(temp)
-
-        trainDataY = np.hstack([ -np.ones(len(self.normalTrainData[0])), np.ones(len(self.abnormalTrainData[0])) ])
+        trainDataX = [np.vstack([self.normalTrainData[i], self.abnormalTrainData[i]]) for i in xrange(self.nEmissionDim)]
+        trainDataY = np.hstack([-np.ones(len(self.normalTrainData[0])), np.ones(len(self.abnormalTrainData[0]))])
 
         print 'Computing likelihoods'
         r = Parallel(n_jobs=-1)(delayed(learning_hmm.computeLikelihoods)(i, self.ml.A, self.ml.B, self.ml.pi, self.ml.F,
@@ -168,7 +179,7 @@ class TestWeightSearch:
                                                                          for i in xrange(len(trainDataX[0])))
         _, self.ll_classifier_train_idx, ll_logp, ll_post = zip(*r)
 
-        # nSample x nLength
+        # Get features from log and posterior (nSample x nLength)
         self.ll_classifier_train_X, self.ll_classifier_train_Y = learning_hmm.getHMMinducedFeatures(ll_logp, ll_post, trainDataY,
                                                                                           c=1.0, add_delta_logp=self.add_logp_d)
 
@@ -177,155 +188,67 @@ class TestWeightSearch:
         self.idx_train_org = self.ll_classifier_train_idx
 
 
-    def preprocessData(self):
-        '''# flatten the data
-        print 'Flattening data'
-        self.X_train_org = []
-        self.Y_train_org = []
-        self.idx_train_org = []
-        for i in xrange(len(self.ll_classifier_train_X)):
-            for j in xrange(len(self.ll_classifier_train_X[i])):
-                self.X_train_org.append(self.ll_classifier_train_X[i][j])
-                self.Y_train_org.append(self.ll_classifier_train_Y[i][j])
-                self.idx_train_org.append(self.ll_classifier_train_idx[i][j])'''
+    def evaluation(self, clf, X, Y, verbose=False):
+        # Reshape X and Y
+        # print 'eval', np.shape(X), np.shape(Y)
+        # X = np.reshape(X, (np.shape(X)[0] / 195, 195, np.shape(X)[-1]))
+        # Y = np.reshape(Y, (np.shape(Y)[0] / 195, 195))
 
-        print 'shapes:', np.shape(self.X_train_org), np.shape(self.Y_train_org)
+        if X is None: return 0, 0, 0
+        if len(X) is not len(Y):
+            if len(np.shape(X)) == 2: X=[X]
+            if len(np.shape(Y)) == 1: Y=[Y]
+        if len(Y) != len(X):
+            print "wrong dim: ", np.shape(X), np.shape(Y)
+            sys.exit()
 
-        self.X_train_org = np.reshape(self.X_train_org, (-1, np.shape(self.X_train_org)[-1]))
-        self.Y_train_org = np.reshape(self.Y_train_org, -1)
-        self.idx_train_org = np.reshape(self.idx_train_org, (-1, np.shape(self.idx_train_org)[-1]))
+        tp_l = []
+        fp_l = []
+        fn_l = []
+        tn_l = []
 
-        print 'shapes:', np.shape(self.X_train_org), np.shape(self.Y_train_org)
+        if clf.method.find('svm')>=0 or clf.method.find('sgd')>=0:
+            for i in xrange(len(X)):
 
-        # Train a scaler and data preparation
-        print 'Preparing Standard Scaler and preprocessing datasets'
-        self.scaler = preprocessing.StandardScaler()
-        self.X_train_org = self.scaler.fit_transform(self.X_train_org)
+                anomaly = False
+                est_y   = clf.predict(X[i])
+                for j in xrange(len(est_y)):
 
-        # scaling training data
-        idx_list = range(len(self.ll_classifier_train_X))
-        random.shuffle(idx_list)
-        s_flag = True
-        f_flag = True
-        for i, count in enumerate(idx_list):
-            train_X = []
-            for j in xrange(len(self.ll_classifier_train_X[i])):
-                train_X.append( self.scaler.transform(self.ll_classifier_train_X[i][j]) )
+                    if j < 4: continue
+                    if est_y[j] > 0:
+                        anomaly = True
+                        break
 
-            if (s_flag is True and self.ll_classifier_train_Y[i][0] < 0) or True:
-                s_flag = False
-                self.ll_test_X.append( train_X )
-                self.ll_test_Y.append( self.ll_classifier_train_Y[i] )
-            elif (f_flag is True and self.ll_classifier_train_Y[i][0] > 0) or True:
-                f_flag = False
-                self.ll_test_X.append( train_X )
-                self.ll_test_Y.append( self.ll_classifier_train_Y[i] )
-        print np.shape(self.ll_classifier_train_X), np.shape(self.ll_test_X), np.shape(self.X_train_org)
+                if anomaly is True and  Y[i][0] > 0: tp_l += [1]
+                if anomaly is True and  Y[i][0] < 0: fp_l += [1]
+                if anomaly is False and  Y[i][0] > 0: fn_l += [1]
+                if anomaly is False and  Y[i][0] < 0: tn_l += [1]
+        else:
+            print "Not available method"
+            sys.exit()
+
+        try:
+            tpr = float(np.sum(tp_l)) / float(np.sum(tp_l)+np.sum(fn_l)) * 100.0
+            fpr = float(np.sum(fp_l)) / float(np.sum(fp_l)+np.sum(tn_l)) * 100.0
+        except:
+            print "tp, fp, tn, fn: ", tp_l, fp_l, tn_l, fn_l
+
+        if np.sum(tp_l+fn_l+fp_l+tn_l) == 0: return
+        acc = float(np.sum(tp_l+tn_l)) / float(np.sum(tp_l+fn_l+fp_l+tn_l)) * 100.0
+        return acc, np.sum(fp_l), np.sum(fn_l)
 
 
-    def evalClassifier(self, weightzz):
-        # print 'Evaluating the trained classifier with class weights:', weight
-        self.classifier = clf.classifier(method=self.classifier_method, nPosteriors=self.nState, nLength=self.nLength - self.startIdx)
-        # self.classifier.set_params(class_weight=weight)
+    def performWeightSearch(self):
+        classifier = clf.classifier(method=self.classifier_method, nPosteriors=self.nState, nLength=self.nLength - self.startIdx)
         if 'sgd' in self.classifier_method:
-            self.classifier.set_params(sgd_n_iter=self.sgd_n_iter)
-        # self.classifier.fit(self.X_train_org, self.Y_train_org, self.idx_train_org)
-        # acc_all, _, _ = evaluation(self.classifier, list(self.ll_test_X), list(self.ll_test_Y))
-
-        allSeq = np.concatenate([self.nonAnomalousX, self.anomalousX], axis=0)
-        allY = np.concatenate([self.nonAnomalousY, self.anomalousY], axis=0)
-
-        weights = [0.25, 0.5, 0.75, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0]
-        for weight in weights:
-            self.classifier.set_params(class_weight=weight)
-            split = cross_validation.StratifiedShuffleSplit([1]*len(self.nonAnomalousX) + [-1]*len(self.anomalousX), n_iter=10, test_size=0.4)
-            accuracies = []
-            for trainIdx, valIdx in split:
-                trainX, trainY = allSeq[trainIdx], allY[trainIdx]
-                valX, valY = allSeq[valIdx], allY[valIdx]
-
-                # Flatten data and fit classifier
-                trainX = np.reshape(trainX, (-1, np.shape(trainX)[-1]))
-                trainY = np.reshape(trainY, -1)
-                self.classifier.fit(self.scaler.transform(trainX), trainY)
-                for i in xrange(len(valX)):
-                    valX[i] = self.scaler.transform(valX[i])
-                accuracies.append(evaluation(self.classifier, valX, valY))
-            print 'Mean accuracy for weight %f:' % weight, np.mean(accuracies), accuracies
-
-        '''self.X_train_org = np.reshape(self.X_train_org, (np.shape(self.X_train_org)[0] / 195, 195, np.shape(self.X_train_org)[-1]))
-        self.Y_train_org = np.reshape(self.Y_train_org, (np.shape(self.Y_train_org)[0] / 195, 195))
-        for weight in weights:
-            self.classifier.set_params(class_weight=weight)
-            kf = cross_validation.KFold(n=len(self.X_train_org), n_folds=2)
-            for trainIdx, valIdx in kf:
-                Xtrain, Xval = self.X_train_org[trainIdx], self.X_train_org[valIdx]
-                ytrain, yval = self.Y_train_org[trainIdx], self.Y_train_org[valIdx]
-                Xtrain = np.reshape(Xtrain, (-1, np.shape(Xtrain)[-1]))
-                ytrain = np.reshape(ytrain, -1)
-                self.classifier.fit(Xtrain, ytrain)
-                print 'Accuracy for weight %f:' % weight, evaluation(self.classifier, Xval, yval)'''
-
-        '''print 'shapes:', np.shape(self.X_train_org), np.shape(self.Y_train_org), np.shape(self.ll_test_X)
-
-        tunedParameters = {'class_weight': [0.25, 0.5, 0.75, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0]}
-        gridSearch = GridSearchCV(self.classifier, tunedParameters, scoring=evaluation)
-        gridSearch.fit(self.X_train_org, self.Y_train_org)
-        print gridSearch.grid_scores_'''
-
-        # return acc_all
+            classifier.set_params(sgd_n_iter=self.sgd_n_iter)
+        ws = weightsearch.WeightSearch(classifier, self.evaluation)
+        weights = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0]
+        bestWeight, bestAccuracy = ws.findBestWeight(weights, self.X_train_org, self.Y_train_org)
+        print 'Best weight found:', bestWeight, 'with accuracy:', bestAccuracy
 
 
-def evaluation(clf, X, Y, verbose=False):
-    # Reshape X and Y
-    # print 'eval', np.shape(X), np.shape(Y)
-    # X = np.reshape(X, (np.shape(X)[0] / 195, 195, np.shape(X)[-1]))
-    # Y = np.reshape(Y, (np.shape(Y)[0] / 195, 195))
-
-    if X is None: return 0, 0, 0
-    if len(X) is not len(Y):
-        if len(np.shape(X)) == 2: X=[X]
-        if len(np.shape(Y)) == 1: Y=[Y]
-    if len(Y) != len(X):
-        print "wrong dim: ", np.shape(X), np.shape(Y)
-        sys.exit()
-
-    tp_l = []
-    fp_l = []
-    fn_l = []
-    tn_l = []
-
-    if clf.method.find('svm')>=0 or clf.method.find('sgd')>=0:
-        for i in xrange(len(X)):
-
-            anomaly = False
-            est_y   = clf.predict(X[i])
-            for j in xrange(len(est_y)):
-
-                if j < 4: continue
-                if est_y[j] > 0:
-                    anomaly = True
-                    break
-
-            if anomaly is True and  Y[i][0] > 0: tp_l += [1]
-            if anomaly is True and  Y[i][0] < 0: fp_l += [1]
-            if anomaly is False and  Y[i][0] > 0: fn_l += [1]
-            if anomaly is False and  Y[i][0] < 0: tn_l += [1]
-    else:
-        print "Not available method"
-        sys.exit()
-
-    try:
-        tpr = float(np.sum(tp_l)) / float(np.sum(tp_l)+np.sum(fn_l)) * 100.0
-        fpr = float(np.sum(fp_l)) / float(np.sum(fp_l)+np.sum(tn_l)) * 100.0
-    except:
-        print "tp, fp, tn, fn: ", tp_l, fp_l, tn_l, fn_l
-
-    if np.sum(tp_l+fn_l+fp_l+tn_l) == 0: return
-    acc = float(np.sum(tp_l+tn_l)) / float(np.sum(tp_l+fn_l+fp_l+tn_l)) * 100.0
-    # print "tp=",np.sum(tp_l), " fn=",np.sum(fn_l), " fp=",np.sum(fp_l), " tn=",np.sum(tn_l), " ACC: ",  acc
-    return acc
-    # return acc, np.sum(fp_l), np.sum(fn_l)
-
-
+if __name__ == '__main__':
+    tws = TestWeightSearch()
+    tws.performWeightSearch()
 
