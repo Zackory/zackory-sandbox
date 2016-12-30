@@ -158,7 +158,9 @@ def train_for_n(nb_epoch=5000, plt_frq=25,BATCH_SIZE=32):
         # Make generative images
         image_batch = X_train[np.random.randint(0,X_train.shape[0],size=BATCH_SIZE),:,:,:]
         noise_gen = np.random.uniform(0,1,size=[BATCH_SIZE,100])
+        print 'image_batch:', np.shape(image_batch), 'noise_gen:', np.shape(noise_gen)
         generated_images = generator.predict(noise_gen)
+        print 'generated_images:', np.shape(generated_images)
 
         # Train discriminator on generated images
         X = np.concatenate((image_batch, generated_images))
@@ -167,7 +169,9 @@ def train_for_n(nb_epoch=5000, plt_frq=25,BATCH_SIZE=32):
         y[BATCH_SIZE:,0] = 1
 
         make_trainable(discriminator,True)
+        print 'Training discriminator'
         d_loss  = discriminator.train_on_batch(X,y)
+        print 'd_loss:', np.shape(d_loss)
         losses["d"].append(d_loss)
 
         # train Generator-Discriminator stack on input noise to non-generated output class
@@ -176,7 +180,9 @@ def train_for_n(nb_epoch=5000, plt_frq=25,BATCH_SIZE=32):
         y2[:,1] = 1
 
         make_trainable(discriminator,False)
+        print 'Training generator'
         g_loss = GAN.train_on_batch(noise_tr, y2 )
+        print 'g_loss:', np.shape(g_loss)
         losses["g"].append(g_loss)
 
         # Updates plots
@@ -184,7 +190,7 @@ def train_for_n(nb_epoch=5000, plt_frq=25,BATCH_SIZE=32):
             plot_loss(losses)
             plot_gen()
 
-train_for_n(nb_epoch=250, plt_frq=25,BATCH_SIZE=128)
+train_for_n(nb_epoch=100, plt_frq=25,BATCH_SIZE=128)
 
 K.set_value(opt.lr, 1e-4)
 K.set_value(dopt.lr, 1e-5)
